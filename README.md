@@ -1,265 +1,151 @@
-# Reinforcement Learning on MinAtar Breakout
+# minatar-breakout-rl
 
-Reinforcement Learning project implementing both classical RL and deep RL algorithms to learn how to play Breakout in the MinAtar environment.
+Reinforcement Learning course project (programming assignment) on MinAtar: implementing and analyzing tabular RL and deep RL methods in a single notebook: EILLES_CHAN_WAY_Stephane.ipynb.  ￼
 
-This project was completed as part of a Reinforcement Learning programming assignment. The objective is to analyze the environment, implement reinforcement learning algorithms from scratch, and evaluate their performance.  ￼
+The notebook focuses on Breakout first, then tests transfer/generalization to other MinAtar games.  ￼
 
-# Overview
+# What’s inside
+- Environment analysis (state/action/reward/episode dynamics, stochasticity) for MinAtar/Breakout-v1  ￼
+- Baselines: random policy + heuristic policy  ￼
+- Classical RL: tabular Q-learning with a compact hand-crafted state  ￼
+- Deep RL: Double DQN (CNN + replay buffer + target network + Huber loss) trained from raw observations  ￼
+- Policy interpretation: videos + state–action heatmaps / controlled state slices  ￼
+- Improving performance: alternative exploration, ablation studies, gradient clipping  ￼
+- Generalization: direct transfer + retraining on Asterix, Freeway, Seaquest, Space Invaders  ￼
 
-MinAtar is a simplified version of Atari environments designed for reinforcement learning research.
-Observations consist of 10×10 grids with multiple channels, allowing experiments to run much faster than full Atari environments while keeping the core challenges of RL problems.  ￼
-
-This project includes:
-	•	Environment analysis
-	•	Baseline policy evaluation
-	•	Implementation of Tabular Q-Learning
-	•	Implementation of Double Deep Q-Network (Double DQN)
-	•	Policy interpretation
-	•	Performance improvement techniques
-	•	Comparison between classical and deep RL methods
 
 # Environment
+- Gymnasium id: MinAtar/Breakout-v1  ￼
+- Observation: (10, 10, 4) binary channels (paddle / ball / trail / bricks)  ￼
+- Actions: 0 no-op, 1 left, 2 right  ￼
+- Reward: +1 per brick destroyed (sparse rewards)  ￼
+- Episode ends when the ball falls below the paddle  ￼
+	
 
-## Environment used:
+# Key results (Breakout)
 
-MinAtar/Breakout-v1
+Evaluation is typically reported as mean ± std over 1000 episodes.  ￼
+| Method | Mean return | Mean episode length (steps) | Notes |
+|---|---:|---:|---|
+| Random policy | 0.37 ± 0.64 | 9.76 ± 6.62 | Very short episodes |
+| Heuristic policy | 8.18 ± 9.26 | 95.86 ± 107.12 | “Track the ball” baseline |
+| Tabular Q-learning (best grid-search params) | 4.21 ± 2.30 | 51.38 ± 25.06 | Better than random, below heuristic |
+| Deep RL (best config, Breakout) | 18.66 ± 14.56 | 190.10 ± 152.75 | Best-performing setup in the notebook |￼
 
-## Observation space:
+# Methods
 
-(10, 10, 4)
+## Tabular Q-learning (classical RL)
 
-The four channels represent:
-	1.	Paddle position
-	2.	Ball position
-	3.	Ball trail (used to estimate velocity)
-	4.	Brick layout
+Because raw observations are high-dimensional, the notebook uses a compact state:
+- x_rel: paddle x − ball x
+- y_ball: ball y
+- (dx, dy): estimated ball velocity using the trail channel  ￼
 
-## Action space:
+Hyperparameters selected via grid search:
+- alpha = 0.5, gamma = 0.9, epsilon_decay = 0.995  ￼
 
-0 → no-op
-1 → move left
-2 → move right
+## Double DQN (deep RL)
 
-## Reward structure:
+Deep agent uses the raw observation (transposed to 4×10×10) and trains a CNN-based Double DQN:
+- Replay buffer + target network for stability
+- Double DQN target (online selects action, target evaluates it)
+- Huber loss (smooth_l1_loss)  ￼
 
-+1 for each brick destroyed
+CNN architecture (small, because inputs are tiny):
+- Conv(4→16, 3×3) + ReLU
+- Conv(16→32, 3×3) + ReLU
+- FC(32·10·10 → 256) + ReLU
+- FC(256 → n_actions)  ￼
 
-Episodes terminate when the ball falls below the paddle.
+# Policy interpretation
 
-# Baseline Policies
+The notebook goes beyond raw scores by interpreting the learned policy using:
+- Gameplay videos
+- State–action heatmaps over controlled state slices
 
-Two baseline policies were implemented for comparison.
+Main qualitative finding: the learned policy’s decisions depend strongly on ball motion (e.g., more intercept-like behavior when the ball is descending), and it differs from the heuristic’s pure “track the ball” strategy.  ￼
 
-## Random Policy
+# Improving performance
 
-Selects actions uniformly at random.
+This section evaluates three levers: alternative exploration, ablation studies, and gradient clipping.  ￼
 
-Performance:
+## Alternative exploration
 
-Reward ≈ 0.37 ± 0.64
-Episode length ≈ 9.76 steps
+Compared to standard ε-greedy, the notebook tests:
+- Boltzmann (softmax) exploration with a temperature schedule
+- Sticky ε-greedy (repeat previous action with some probability)
 
-## Heuristic Policy
+Boltzmann yields a small improvement over ε-greedy in this setup (evaluation 18.72 ± 14.65 vs 17.79 ± 13.67 in one experiment), while sticky ε-greedy is roughly comparable (17.19 ± 12.07).  ￼
 
-Moves the paddle toward the horizontal position of the ball.
+## Ablation studies (what matters most?)
 
-Performance:
+Removing core DQN stabilizers shows:
+- No target network: performance drops (13.33 ± 9.05)  ￼
+- No replay buffer: learning collapses (0.01 ± 0.10, ~6 steps)  ￼
+- No Double DQN (standard DQN): slightly lower / similar (16.16 ± 13.39)  ￼
 
-Reward ≈ 8.18 ± 9.26
-Episode length ≈ 95.86 steps
+## Gradient clipping
 
-The heuristic policy demonstrates that simple domain knowledge can significantly improve performance.
+Gradient clipping (norm clipping) slightly reduces final return in the reported run (16.56 ± 11.51 vs 17.79 ± 13.67) but can improve robustness by preventing occasional unstable updates.  ￼
 
-# Classical Reinforcement Learning
+# Extending to other MinAtar games (generalization)
 
-## Tabular Q-Learning
+The notebook evaluates generalization on:
+- MinAtar/Asterix-v1
+- MinAtar/Freeway-v1
+- MinAtar/Seaquest-v1
+- MinAtar/SpaceInvaders-v1  ￼
 
-A tabular Q-learning algorithm was implemented.
+## 1) Direct transfer (no retraining)
 
-Update rule:
+The best Breakout agent is applied as-is to other games. Example: on Asterix, direct transfer does not improve reward over random (both mean return 0.49), although it survives longer (≈ 99 vs 65 steps).  ￼
 
-Q(s,a) ← Q(s,a) + α [ r + γ max_a' Q(s',a') − Q(s,a) ]
+Overall conclusion reported in the notebook: direct transfer helps on some games (e.g., Freeway) but not on others (e.g., Seaquest, Space Invaders).  ￼
 
+## 2) Retraining on other games
 
-## State Representation
+Using the same deep RL pipeline (with minor adjustments when observation channels differ), retraining results include:
 
-The raw observation space is high-dimensional.
-To reduce complexity, the state was represented as:
+| Game | Trained agent return | Random return | Notes |
+|---|---:|---:|---|
+| Freeway | 18.90 ± 12.55 | 0.36 ± 0.56 | Large gap over random |
+| Seaquest | 0.33 ± 0.60 | 0.11 ± 0.40 | Improves, but remains low |
+| Space Invaders | 29.95 ± 20.38 | 4.02 ± 3.24 | Strong improvement |
+| Asterix | 0.53 ± 0.88 | 0.49 ± 0.85 | Only marginal gain |
 
-(x_rel, y_ball, dx, dy)
+High-level takeaway: games with simpler control geometry (often movement mainly along one axis) and denser/more attributable rewards are easier to learn; richer dynamics and harder credit assignment make learning tougher (e.g., Asterix).  ￼
 
-Where:
-	•	x_rel: relative horizontal distance between paddle and ball
-	•	y_ball: vertical ball position
-	•	dx, dy: ball velocity estimated using the trail channel
+# Installation
 
-This compact representation allows the use of a tabular learning algorithm.
+pip install numpy gymnasium minatar torch matplotlib
 
-## Hyperparameters
+# How to run
 
-Selected using grid search:
+Open and run the notebook end-to-end:
+- EILLES_CHAN_WAY_Stephane.ipynb  ￼
 
-α = 0.5
-γ = 0.9
-ε_decay = 0.995
 
-Exploration strategy:
+# Repository structure
 
-ε-greedy
-
-## Performance
-
-Learned Policy (Q-learning)
-
-Reward ≈ 4.21 ± 2.30
-Episode length ≈ 51.38 steps
-
-The learned policy improves significantly over the random baseline but still underperforms the heuristic policy.
-
-Limitations include:
-	•	sparse reward signal
-	•	reduced state representation
-	•	state aliasing
-
-# Deep Reinforcement Learning
-
-## Double Deep Q-Network (Double DQN)
-
-A Double DQN was implemented to learn directly from raw observations.
-
-Techniques used:
-	•	replay buffer
-	•	target network
-	•	ε-greedy exploration
-	•	Huber loss
-
-Target computation:
-
-a* = argmax_a Q_online(s',a)
-
-y = r + γ Q_target(s', a*)
-
-Loss function:
-
-Huber Loss
-
-## Neural Network Architecture
-
-Input:
-
-4 × 10 × 10 tensor
-
-Architecture:
-
-Conv2D (4 → 16, kernel 3x3)
-ReLU
-Conv2D (16 → 32, kernel 3x3)
-ReLU
-Flatten
-Fully Connected (256)
-ReLU
-Output layer (Q-values for actions)
-
-Convolutional layers allow the network to learn spatial relationships between the paddle, ball, and bricks.
-
-# Policy Interpretation
-
-To better understand the learned behavior, we analyzed the trained policies through:
-	•	gameplay visualizations
-	•	reward and episode length statistics
-	•	comparison with baseline policies
-
-Observations:
-	•	The learned policy successfully keeps the ball in play longer than the random policy.
-	•	The agent learns to position the paddle relative to the ball trajectory.
-	•	However, the agent does not fully learn strategic targeting of bricks due to the sparse reward signal and limited training time.
-
-These analyses help interpret what the agent has actually learned rather than relying solely on performance metrics.
-
-
-# Improving Performance
-
-Several techniques were explored to improve training performance and stability for Double DQN.
-
-## Exploration Strategies
-
-Beyond the baseline ε-greedy schedule, we tested alternative exploration setups to better handle sparse rewards:
-	•	Longer exploration phase (slower ε decay) to improve state-space coverage and avoid premature convergence.
-	•	Different ε schedules (same endpoints, different decay horizons) to balance early exploration and late exploitation.
-
-Observation: keeping ε high for longer generally increases robustness, but may slow down short-term learning curves.
-
-Ablation Studies
-
-To understand which components contribute most to performance, we ran one-factor-at-a-time ablations (starting from a baseline configuration and modifying a single element):
-	•	Learning rate: baseline vs lower learning rate
-	•	Target network update period: baseline vs slower target updates
-	•	Exploration decay steps: baseline vs longer exploration
-
-Example baseline configuration:
-
-baseline
-lr = 1e-3
-target_update = 1000
-eps_decay_steps = 200000
-
-Variants tested:
-	•	lower learning rate
-	•	slower target network updates
-	•	longer exploration period
-
-Gradient Clipping
-
-To mitigate occasional instability during optimization, gradient norm clipping was considered (and can be enabled in the code):
-	•	Clip gradients to a maximum norm (e.g., 10) before the optimizer step.
-
-Effect: reduces large, destabilizing updates and helps prevent rare training collapses, especially when Q-values or TD-errors spike.
-
-Observations
-
-Key factors affecting performance:
-
-Learning rate
-	•	too large → unstable learning / divergence
-	•	too small → slow convergence
-
-Exploration schedule
-	•	longer exploration improves coverage of the state space
-	•	too fast decay may lead to premature convergence to suboptimal behavior
-
-Target network updates
-	•	slower updates improve stability but may slow learning
-	•	more frequent updates can speed up learning but can destabilize training
-
-Gradient clipping
-	•	improves stability by preventing oversized gradient steps
-	•	most useful when training exhibits sudden loss spikes
-
-Results
-
-Main observations:
-	•	Tabular Q-learning improves over random play.
-	•	Double DQN achieves significantly higher performance.
-	•	Neural networks enable learning directly from raw observations.
-	•	Exploration strategy, target network update frequency, and replay buffer all strongly affect training stability and final performance.
-
-
-# Project Structure
-
+```text
 .
 ├── EILLES_CHAN_WAY_Stephane.ipynb
-├── README.md
+└── README.md
+```
 
 # References
 
-Watkins & Dayan (1992)
-Q-learning
+The notebook cites the key references:
+- Watkins & Dayan — Q-learning (1992)  ￼
+- Mnih et al. — DQN (2015)  ￼
+- van Hasselt et al. — Double DQN (2016)  ￼
 
-Mnih et al. (2015)
-Human-level control through deep reinforcement learning
+MinAtar paper: https://arxiv.org/abs/1903.03176
 
-van Hasselt et al. (2016)
-Deep Reinforcement Learning with Double Q-learning
+DQN paper:     https://www.nature.com/articles/nature14236
 
-MinAtar Environment
-https://arxiv.org/abs/1903.03176
+Double DQN:    https://arxiv.org/abs/1509.06461
+
+# Author
+
+Stéphane EILLES-CHAN WAY  ￼
