@@ -123,7 +123,7 @@ Limitations include:
 
 # Deep Reinforcement Learning
 
-# Double Deep Q-Network (Double DQN)
+## Double Deep Q-Network (Double DQN)
 
 A Double DQN was implemented to learn directly from raw observations.
 
@@ -143,7 +143,7 @@ Loss function:
 
 Huber Loss
 
-# Neural Network Architecture
+## Neural Network Architecture
 
 Input:
 
@@ -179,13 +179,9 @@ These analyses help interpret what the agent has actually learned rather than re
 
 # Improving Performance
 
-Several techniques were explored to improve training performance and stability.
-
-Improving Performance
-
 Several techniques were explored to improve training performance and stability for Double DQN.
 
-Exploration Strategies
+## Exploration Strategies
 
 Beyond the baseline ε-greedy schedule, we tested alternative exploration setups to better handle sparse rewards:
 	•	Longer exploration phase (slower ε decay) to improve state-space coverage and avoid premature convergence.
